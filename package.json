@@ -5,12 +5,19 @@
   "main": "index.js",
   "type": "module",
   "bin": {
-    "create-modern-frontend-stack": "./index.js"
+    "create-modern-frontend-stack": "index.js"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": ["nextjs", "shadcn", "tailwind", "tanstack-query", "cli", "scaffold"],
+  "keywords": [
+    "nextjs",
+    "shadcn",
+    "tailwind",
+    "tanstack-query",
+    "cli",
+    "scaffold"
+  ],
   "author": "Kendrix",
   "license": "MIT",
   "dependencies": {
