@@ -7,10 +7,25 @@ import { execa } from "execa";
 import fs from "fs";
 import path from "path";
 
-async function main() {
-  console.log(chalk.bold.cyan("\n🚀 Welcome to the Modern Stack Installer!\n"));
+// 1. Helper function to detect the running package manager
+function detectPackageManager() {
+  const userAgent = process.env.npm_config_user_agent || "";
+  if (userAgent.includes("pnpm")) return "pnpm";
+  if (userAgent.includes("yarn")) return "yarn";
+  if (userAgent.includes("bun")) return "bun";
+  return "npm"; // Default fallback
+}
 
-  // 1. Ask for project details and framework choice
+async function main() {
+  // Identify environment variables
+  const pm = detectPackageManager();
+
+  console.log(chalk.bold.cyan("\n🚀 Welcome to the Modern Stack Installer!"));
+  console.log(
+    chalk.gray(`   Detected execution environment: ${chalk.yellow.bold(pm)}\n`),
+  );
+
+  // 2. Ask for project details and framework choice
   const answers = await inquirer.prompt([
     {
       type: "input",
@@ -24,7 +39,7 @@ async function main() {
       message: "Which framework would you like to use?",
       choices: [
         { name: "Next.js (App Router)", value: "next" },
-        { name: "React.js (Vite Spa - Tailwind v4 Native)", value: "react" },
+        { name: "React.js (Vite Spa)", value: "react" },
       ],
     },
   ]);
@@ -32,13 +47,21 @@ async function main() {
   const targetDir = path.join(process.cwd(), answers.projectName);
   const spinner = ora();
 
+  // Dynamic Command Arguments Builder based on package manager detected
+  const isPnpm = pm === "pnpm";
+  const runnerCmd = isPnpm ? "pnpm" : "npx";
+  const dlxArgs = isPnpm ? ["dlx"] : [];
+  const installCmd = isPnpm ? "add" : "install";
+
   try {
     if (answers.framework === "next") {
       // ==========================================
-      // PATH A: NEXT.JS PIPELINE
+      // PATH A: NEXT.JS PIPELINE (DYNAMIC)
       // ==========================================
-      spinner.start("Scaffolding Next.js with Tailwind CSS...");
-      await execa("npx", [
+      spinner.start(`Scaffolding Next.js via ${pm}...`);
+
+      const nextArgs = [
+        ...dlxArgs,
         "create-next-app@latest",
         answers.projectName,
         "--ts",
@@ -47,17 +70,22 @@ async function main() {
         "--src-dir",
         "--import-alias",
         "@/*",
-      ]);
-      spinner.succeed(chalk.green("Next.js environment created!"));
+      ];
+      if (isPnpm) nextArgs.push("--use-pnpm");
+
+      await execa(runnerCmd, nextArgs);
+      spinner.succeed(chalk.green(`Next.js environment created using ${pm}!`));
 
       spinner.start("Installing Axios and TanStack Query...");
-      await execa("npm", ["install", "@tanstack/react-query", "axios"], {
+      await execa(pm, [installCmd, "@tanstack/react-query", "axios"], {
         cwd: targetDir,
       });
       spinner.succeed(chalk.green("Dependencies installed successfully!"));
 
       spinner.start("Initializing shadcn/ui...");
-      await execa("npx", ["shadcn@latest", "init", "-d"], { cwd: targetDir });
+      await execa(runnerCmd, [...dlxArgs, "shadcn@latest", "init", "-d"], {
+        cwd: targetDir,
+      });
       spinner.succeed(chalk.green("Shadcn/UI initialized!"));
 
       // Inject Axios config
@@ -86,110 +114,71 @@ async function main() {
       spinner.succeed(chalk.green("Layout wrapped with QueryClientProvider!"));
     } else {
       // ==========================================
-      // PATH B: REACT.JS (VITE) PIPELINE (TAILWIND V4 NATIVE)
+      // PATH B: REACT.JS (VITE) PIPELINE (DYNAMIC)
       // ==========================================
-      spinner.start("Scaffolding React.js with Vite...");
-      await execa("npm", [
-        "create",
-        "vite@latest",
-        answers.projectName,
-        "--",
-        "--template",
-        "react-ts",
-      ]);
+      spinner.start(`Scaffolding React.js with Vite via ${pm}...`);
+
+      if (isPnpm) {
+        await execa("pnpm", [
+          "create",
+          "vite",
+          answers.projectName,
+          "--template",
+          "react-ts",
+        ]);
+      } else {
+        await execa("npm", [
+          "create",
+          "vite@latest",
+          answers.projectName,
+          "--",
+          "--template",
+          "react-ts",
+        ]);
+      }
       spinner.succeed(chalk.green("Vite + React structure setup!"));
 
+      // Explicit install needed for Vite initialization states
+      spinner.start(`Running baseline ${pm} setup configurations...`);
+      await execa(pm, [isPnpm ? "install" : "install"], { cwd: targetDir });
+
       spinner.start("Installing Core Dependencies & Latest Tailwind...");
-      await execa("npm", ["install", "@tanstack/react-query", "axios"], {
+      await execa(pm, [installCmd, "@tanstack/react-query", "axios"], {
         cwd: targetDir,
       });
       await execa(
-        "npm",
-        ["install", "-D", "tailwindcss", "@tailwindcss/vite", "@types/node"],
+        pm,
+        [installCmd, "-D", "tailwindcss", "@tailwindcss/vite", "@types/node"],
         { cwd: targetDir },
       );
       spinner.succeed(chalk.green("Latest core dependencies ready!"));
 
       spinner.start("Configuring Path Aliases & Vite Configurations...");
 
-      // Inject alias configurations directly into vite.config.ts
+      // Inject configurations directly into vite.config.ts
       const viteConfigPath = path.join(targetDir, "vite.config.ts");
-      const viteConfigContent = `import { defineConfig } from 'vite'
-import react from '@vitejs/plugin-react'
-import tailwindcss from '@tailwindcss/vite'
-import path from 'path'
-
-// https://vitejs.dev/config/
-export default defineConfig({
-  plugins: [react(), tailwindcss()],
-  resolve: {
-    alias: {
-      "@": path.resolve(__dirname, "./src"),
-    },
-  },
-})`;
+      const viteConfigContent = `import { defineConfig } from 'vite'\nimport react from '@vitejs/plugin-react'\nimport tailwindcss from '@tailwindcss/vite'\nimport path from 'path'\n\nexport default defineConfig({\n  plugins: [react(), tailwindcss()],\n  resolve: {\n    alias: {\n      "@": path.resolve(__dirname, "./src"),\n    },\n  },\n})`;
       fs.writeFileSync(viteConfigPath, viteConfigContent);
 
-      // Overwrite tsconfig.json with explicit paths to bypass JSON.parse traps completely
+      // Overwrite base tsconfig mappings
       const tsconfigPath = path.join(targetDir, "tsconfig.json");
-      const tsconfigContent = `{
-  "files": [],
-  "references": [
-    { "path": "./tsconfig.app.json" },
-    { "path": "./tsconfig.node.json" }
-  ],
-  "compilerOptions": {
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  }
-}`;
+      const tsconfigContent = `{\n  "files": [],\n  "references": [\n    { "path": "./tsconfig.app.json" },\n    { "path": "./tsconfig.node.json" }\n  ],\n  "compilerOptions": {\n    "baseUrl": ".",\n    "paths": {\n      "@/*": ["./src/*"]\n    }\n  }\n}`;
       fs.writeFileSync(tsconfigPath, tsconfigContent);
 
-      // Overwrite tsconfig.app.json with explicit path allocations
+      // Overwrite internal app settings
       const tsconfigAppPath = path.join(targetDir, "tsconfig.app.json");
-      const tsconfigAppContent = `{
-  "compilerOptions": {
-    "target": "ES2020",
-    "useDefineForClassFields": true,
-    "lib": ["DOM", "DOM.Iterable", "ES2020"],
-    "module": "ESNext",
-    "skipLibCheck": true,
-
-    /* Bundler mode */
-    "moduleResolution": "bundler",
-    "allowImportingTsExtensions": true,
-    "resolveJsonModule": true,
-    "isolatedModules": true,
-    "noEmit": true,
-    "jsx": "react-jsx",
-
-    /* Linting */
-    "strict": true,
-    "noUnusedLocals": true,
-    "noUnusedParameters": true,
-    "noImplicitReturns": true,
-
-    /* Path Mapping */
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["./src/*"]
-    }
-  },
-  "include": ["src"]
-}`;
+      const tsconfigAppContent = `{\n  "compilerOptions": {\n    "target": "ES2020",\n    "useDefineForClassFields": true,\n    "lib": ["DOM", "DOM.Iterable", "ES2020"],\n    "module": "ESNext",\n    "skipLibCheck": true,\n    "moduleResolution": "bundler",\n    "allowImportingTsExtensions": true,\n    "resolveJsonModule": true,\n    "isolatedModules": true,\n    "noEmit": true,\n    "jsx": "react-jsx",\n    "strict": true,\n    "noUnusedLocals": true,\n    "noUnusedParameters": true,\n    "noImplicitReturns": true,\n    "baseUrl": ".",\n    "paths": {\n      "@/*": ["./src/*"]\n    }\n  },\n  "include": ["src"]\n}`;
       fs.writeFileSync(tsconfigAppPath, tsconfigAppContent);
 
-      // Update index.css to use modern Tailwind v4 directive
+      // Setup modern Tailwind directive
       const cssPath = path.join(targetDir, "src", "index.css");
       fs.writeFileSync(cssPath, `@import "tailwindcss";`);
-      spinner.succeed(
-        chalk.green("Path aliases and configurations successfully matched!"),
-      );
+      spinner.succeed(chalk.green("Path aliases successfully configured!"));
 
       spinner.start("Initializing shadcn/ui for Vite...");
-      await execa("npx", ["shadcn@latest", "init", "-d"], { cwd: targetDir });
+      await execa(runnerCmd, [...dlxArgs, "shadcn@latest", "init", "-d"], {
+        cwd: targetDir,
+      });
       spinner.succeed(chalk.green("Shadcn/UI injected!"));
 
       // Add Axios Client
@@ -197,24 +186,10 @@ export default defineConfig({
       if (!fs.existsSync(libDir)) fs.mkdirSync(libDir, { recursive: true });
       fs.writeFileSync(path.join(libDir, "api.ts"), getAxiosContent());
 
-      // Wrap main.tsx with TanStack Query Provider
+      // Wrap entry main tree
       spinner.start("Wrapping application tree with Query Client...");
       const mainPath = path.join(targetDir, "src", "main.tsx");
-      const updatedMainContent = `import React from 'react'
-import ReactDOM from 'react-dom/client'
-import App from './App.tsx'
-import './index.css'
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-
-const queryClient = new QueryClient()
-
-ReactDOM.createRoot(document.getElementById('root')!).render(
-  <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
-  </React.StrictMode>,
-)`;
+      const updatedMainContent = `import React from 'react'\nimport ReactDOM from 'react-dom/client'\nimport App from './App.tsx'\nimport './index.css'\nimport { QueryClient, QueryClientProvider } from '@tanstack/react-query'\n\nconst queryClient = new QueryClient()\n\nReactDOM.createRoot(document.getElementById('root')!).render(\n  <React.StrictMode>\n    <QueryClientProvider client={queryClient}>\n      <App />\n    </QueryClientProvider>\n  </React.StrictMode>,\n)`;
       fs.writeFileSync(mainPath, updatedMainContent);
       spinner.succeed(chalk.green("React tree wrapped successfully!"));
     }
@@ -226,14 +201,13 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       ),
     );
     console.log(chalk.gray(`  cd ${answers.projectName}`));
-    console.log(chalk.gray(`  npm run dev\n`));
+    console.log(chalk.gray(`  ${pm} dev\n`));
   } catch (error) {
-    spinner.fail(chalk.red("Setup failed. Checkout issues log."));
+    spinner.fail(chalk.red("Setup failed. Check error logs."));
     console.error(error);
   }
 }
 
-// Code builder string templates
 function getAxiosContent() {
   return `import axios from 'axios';\n\nconst api = axios.create({\n  baseURL: 'https://api.example.com',\n  headers: { 'Content-Type': 'application/json' },\n});\n\nexport default api;\n`;
 }
