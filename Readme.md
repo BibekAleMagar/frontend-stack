@@ -1,21 +1,45 @@
-# 🚀 Ultimate Stack CLI
+# create-modern-frontend-stack
 
-A blazing-fast interactive CLI to scaffold your modern frontend application with all best practices configured out of the box. Stop wasting 15 minutes copying providers, setting up Axios clients, and initializing Tailwind themes.
+🚀 An interactive, zero-configuration CLI tool to instantly scaffold production-ready frontend architectures.
 
-[![NPM Version](https://img.shields.io/npm/v/your-package-name?color=cyan)](https://www.npmjs.com/)
-[![GitHub Stars](https://img.shields.io/github/stars/your-github-username/your-repo-name?style=flat&color=yellow)](https://github.com/your-github-username/your-repo-name)
+Instead of spending hours setting up linters, path aliases, style frameworks, and HTTP Clients, this tool handles the heavy lifting in seconds—completely tailored to your environment.
+
+---
 
 ## ✨ Features
 
-- ⚡ **Framework Choice:** Toggle between **Next.js (App Router)** and **React.js (Vite)** instantly.
-- 🎨 **Shadcn/UI & Tailwind:** Fully initialized with default configurations.
-- 🔄 **TanStack Query (React Query):** Complete global wrapper and providers pre-configured.
-- 📡 **Axios Client:** Pre-built custom client interceptor instances (`src/lib/api.ts`).
+- **🧠 Smart Environment Auto-Detection:** Automatically detects whether you invoked the tool using `npm` or `pnpm` and executes all internal configurations natively using your preferred package manager.
+- **🛠️ Interactive Stack Selection:** Choose between a full-stack meta-framework layout or a lightning-fast Single Page Application setup.
+- **⚛️ Standardized Ecosystem:** Every choice pre-wires absolute TypeScript safety, global configuration architectures, and standard industry dependencies.
 
-## 🛠️ Quick Start
+---
 
-You don't need to install anything globally. Just run:
+## 📦 What's Included in the Box?
 
-```bash
-npx create-modern-frontend-stack
-```
+No matter which path you select, the tool hooks up a robust foundation:
+
+| Feature                  | Next.js Path             | React + Vite Path                             |
+| :----------------------- | :----------------------- | :-------------------------------------------- |
+| **Framework Engine**     | Next.js (App Router)     | Vite + React                                  |
+| **Styling Architecture** | Tailwind CSS + Shadcn/UI | Native Tailwind CSS + Shadcn/UI               |
+| **Data Fetching**        | Axios + TanStack Query   | Axios + TanStack Query                        |
+| **Type Safety**          | TypeScript (Strict Mode) | TypeScript + Custom Vite Path Aliases (`@/*`) |
+
+---
+
+## 🚀 Usage & Installation
+
+You have two ways to use this tool: executing it dynamically on-the-fly (recommended) or installing it globally on your system.
+
+### Method 1: Execute On-The-Fly (Zero Install)
+
+Run it directly from the cloud registry without permanently downloading it to your machine:
+
+- **Using pnpm:**
+  ```bash
+  pnpm dlx create-modern-frontend-stack
+  ```
+- **Using npm:**
+  ```bash
+  npx create-modern-frontend-stack
+  ```
