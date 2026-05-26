@@ -17,5 +17,5 @@ A blazing-fast interactive CLI to scaffold your modern frontend application with
 You don't need to install anything globally. Just run:
 
 ```bash
-npx your-package-name
+npx create-modern-frontend-stack
 ```
